@@ -3,6 +3,12 @@ enum IterationState {
     CollectSecond,
 }
 
+enum InstructionState {
+    Neutral,
+    Enabled,
+    Disabled,
+}
+
 fn check_substring(sub: &str) -> (usize, i32) {
     if sub.len() < 5 {
         return (sub.len() - 1, 0);
@@ -21,7 +27,7 @@ fn check_substring(sub: &str) -> (usize, i32) {
         if i == 0 {
             continue;
         }
-        
+
         idx = i;
 
         if let IterationState::CollectFirst = state {
@@ -64,35 +70,42 @@ fn check_substring(sub: &str) -> (usize, i32) {
     return (idx, 0);
 }
 
-// use regex::Regex;
-//
-// fn find_with_regex(input: &str) -> Vec<String> {
-//     let pattern = r"mul\(\d+,\d+\)";
-//     let re = Regex::new(pattern).expect("Failed to compile regex");
-//
-//     re.find_iter(input)
-//         .map(|m| m.as_str().to_string())
-//         .collect()
-// }
-
 fn main() {
     let filepath = "input.md";
     let data = std::fs::read_to_string(filepath).expect("Could not read input file");
 
+    let mut instruction_state = InstructionState::Neutral;
     let mut current_index: usize = 0;
     let mut cumulator: i32 = 0;
 
     while current_index < data.len() {
         if let Some(c) = data.chars().nth(current_index) {
             // Checks first match
-            if c != 'm' {
+            if c != 'm' && c != 'd' {
                 current_index += 1;
                 continue;
             }
 
-            // If first match ok, check size for next matches
-            if current_index + 3 > data.len() - 1 {
+            // If first match ok, check size for next matches mul(x,y)
+            if current_index + 7 > data.len() - 1 {
                 break;
+            }
+
+            if c == 'd' {
+                let do_command_check = data.chars().skip(current_index).take(4).collect::<String>();
+                let dont_command_check =
+                    data.chars().skip(current_index).take(7).collect::<String>();
+
+                if do_command_check == "do()" {
+                    instruction_state = InstructionState::Enabled;
+                }
+
+                if dont_command_check == "don't()" {
+                    instruction_state = InstructionState::Disabled;
+                }
+
+                current_index += 1;
+                continue;
             }
 
             let next_chars = data
@@ -105,8 +118,12 @@ fn main() {
                 let substring = &data[current_index + 3..];
                 let (index, sum) = check_substring(substring);
 
-                cumulator += sum;
                 current_index += 3 + index;
+
+                if let InstructionState::Enabled | InstructionState::Neutral = instruction_state {
+                    cumulator += sum;
+                }
+
                 continue;
             }
 
